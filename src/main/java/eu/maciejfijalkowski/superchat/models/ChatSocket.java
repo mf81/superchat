@@ -9,6 +9,7 @@ import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -16,11 +17,11 @@ import java.util.List;
 @Component
 public class ChatSocket extends TextWebSocketHandler implements WebSocketConfigurer {
 
-    List<WebSocketSession> userList = new ArrayList<>();
+    List<UserChatModel> userList = new ArrayList<>();
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-        userList.add(session);
+        userList.add(new UserChatModel(session));
     }
 
     @Override
@@ -32,13 +33,22 @@ public class ChatSocket extends TextWebSocketHandler implements WebSocketConfigu
 
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
-        for (WebSocketSession webSocketSession: userList){
-            webSocketSession.sendMessage(message);
+        sendMessageToAll(message);
+    }
+
+    private void sendMessageToAll(TextMessage message) throws IOException {
+        for (UserChatModel userModel : userList) {
+            userModel.sendMessage(message.getPayload());
         }
     }
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
         userList.remove(session);
+    }
+
+    private UserChatModel findUserBySesionId( WebSocketSession session){
+        return userList.stream().filter(s -> s.getSession().getId().equals(session.getId())).findAny().get();
+
     }
 }
