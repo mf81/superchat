@@ -20,35 +20,50 @@ public class ChatSocket extends TextWebSocketHandler implements WebSocketConfigu
     List<UserChatModel> userList = new ArrayList<>();
 
     @Override
-    public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-        userList.add(new UserChatModel(session));
-    }
-
-    @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry webSocketHandlerRegistry) {
         webSocketHandlerRegistry
-                .addHandler(this,"/chat")
+                .addHandler(this, "/chat")
                 .setAllowedOrigins("*");
     }
 
     @Override
-    protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
-        sendMessageToAll(message);
-    }
+    public void afterConnectionEstablished(WebSocketSession session) throws Exception {
+        userList.add(new UserChatModel(session));
 
-    private void sendMessageToAll(TextMessage message) throws IOException {
-        for (UserChatModel userModel : userList) {
-            userModel.sendMessage(message.getPayload());
-        }
+        UserChatModel userChatModel = findUserBySessionId(session);
+        userChatModel.sendMessage("Witaj na naszym chacie!");
+        userChatModel.sendMessage("Twoja pierwsza wiadomość będzie Twoim nickiem");
     }
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
-        userList.remove(session);
+        userList.remove(findUserBySessionId(session));
     }
 
-    private UserChatModel findUserBySesionId( WebSocketSession session){
-        return userList.stream().filter(s -> s.getSession().getId().equals(session.getId())).findAny().get();
+    @Override
+    protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
+        UserChatModel userChatModel = findUserBySessionId(session);
 
+        if(userChatModel.getNickname() == null){
+            userChatModel.setNickname(message.getPayload());
+            userChatModel.sendMessage("Ustawiono Twój nick!");
+            return;
+        }
+
+        sendMessageToAll(userChatModel.getNickname() + ": " + message.getPayload());
     }
+
+    private void sendMessageToAll(String message) throws IOException {
+        for (UserChatModel userModel : userList) {
+            userModel.sendMessage(message);
+        }
+    }
+
+    private UserChatModel findUserBySessionId(WebSocketSession session){
+        return userList.stream()
+                .filter(s -> s.getSession().getId().equals(session.getId()))
+                .findAny().get();
+    }
+
+
 }
